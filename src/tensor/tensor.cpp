@@ -205,9 +205,10 @@ tensor_t Tensor::view(const std::vector<size_t> &shape) const {
     if(isContiguous()){
         TensorMeta new_meta = this->_meta;
         new_meta.shape = shape;
-        size_t expected_stride = 1;
+        new_meta.strides.resize(shape.size());
+        int64_t expected_stride = 1;
         size_t new_shape_siz = shape.size();
-        for(size_t i = new_shape_siz - 1; i >= 0; --i){
+        for(int64_t i = new_shape_siz - 1; i >= 0; --i){
             new_meta.strides[i] = expected_stride;
             expected_stride *= shape[i];
         }
@@ -219,15 +220,16 @@ tensor_t Tensor::view(const std::vector<size_t> &shape) const {
         new_meta.strides.clear();
         auto& new_strides = new_meta.strides;
         //先合并连续的维度
-        std::vector<std::pair<size_t,size_t>> merged_dims;
+        std::vector<std::pair<int64_t,int64_t>> merged_dims;
         size_t dim = this->ndim();
-        size_t expected_stride = this->strides()[dim - 1];
-        size_t current_shape = 1;
-        size_t current_stride = this->strides()[dim - 1];
+        int64_t expected_stride = this->strides()[dim - 1];
+        int64_t current_shape = 1;
+        int64_t current_stride = this->strides()[dim - 1];
         
-        for(size_t i = dim - 1; i >= 0 ; --i){
+        for(int64_t i = dim - 1; i >= 0 ; --i){
             if(expected_stride == this->strides()[i]){
                 current_shape *= this->shape()[i];
+                expected_stride *= this->shape()[i];
             }
             else{
                 merged_dims.emplace_back(current_shape,current_stride);
@@ -238,7 +240,7 @@ tensor_t Tensor::view(const std::vector<size_t> &shape) const {
 
         merged_dims.emplace_back(current_shape,current_stride);
 
-        for(size_t t_shape : shape){
+        for(int64_t t_shape : shape){
             if(t_shape == merged_dims.back().first){
                 new_strides.emplace_back(merged_dims.back().second);
                 merged_dims.pop_back();
