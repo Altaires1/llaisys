@@ -184,7 +184,22 @@ tensor_t Tensor::slice(size_t dim, size_t start, size_t end) const {
 }
 
 void Tensor::load(const void *src_) {
-    TO_BE_IMPLEMENTED();
+    size_t data_size = numel() * elementSize();
+    llaisysDeviceType_t device_type = this->deviceType();
+    
+    if (device_type == LLAISYS_DEVICE_CPU) {
+        // CPU tensor, directly copy from src_ to tensor memory
+        std::memcpy(data(), src_, data_size);
+    } else {
+        // GPU or other device tensor, use device API to copy from host to device
+        core::context().setDevice(device_type, this->deviceId());
+        core::context().runtime().api()->memcpy_sync(
+            data(),
+            src_,
+            data_size,
+            LLAISYS_MEMCPY_H2D
+        );
+    }
 }
 
 tensor_t Tensor::contiguous() const {
