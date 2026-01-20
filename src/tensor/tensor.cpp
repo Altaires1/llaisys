@@ -164,8 +164,26 @@ void Tensor::debug() const {
 }
 
 bool Tensor::isContiguous() const {
-    TO_BE_IMPLEMENTED();
-    return true;
+    size_t ndim = this->ndim();
+    if (ndim == 0) {
+        return true; // 标量张量始终是连续的
+    }
+    
+    // 计算预期的步长，从最后一个维度开始
+    ptrdiff_t expected_stride = 1; // 最后一个维度的步长应为1（考虑元素大小前）
+    
+    // 从倒数第二个维度开始检查
+    for (size_t i = ndim - 1; i > 0; --i) {
+        // 检查当前维度的步长是否等于预期步长
+        if (this->strides()[i] != expected_stride) {
+            return false;
+        }
+        // 更新下一个维度的预期步长
+        expected_stride *= this->shape()[i];
+    }
+    
+    // 检查第一个维度的步长是否等于预期步长
+    return this->strides()[0] == expected_stride;
 }
 
 tensor_t Tensor::permute(const std::vector<size_t> &order) const {
