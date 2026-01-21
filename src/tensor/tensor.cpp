@@ -199,7 +199,7 @@ tensor_t Tensor::view(const std::vector<size_t> &shape) const {
         new_numel *= s;
     }
     if (new_numel != this->numel()) {
-        EXCEPTION_INVALID_SHAPE;
+        EXCEPTION_INVALID_VIEW_SHAPE;
     }
 
     if(isContiguous()){
@@ -246,11 +246,11 @@ tensor_t Tensor::view(const std::vector<size_t> &shape) const {
                 merged_dims.pop_back();
             }
             else if(t_shape > merged_dims.back().first){
-                EXCEPTION_INVALID_SHAPE;
+                EXCEPTION_INVALID_VIEW_SHAPE;
             }
             else{
                 if(merged_dims.back().first % t_shape != 0){
-                    EXCEPTION_INVALID_SHAPE;
+                    EXCEPTION_INVALID_VIEW_SHAPE;
                 }
                 size_t left_shape = t_shape;
                 size_t right_shape = merged_dims.back().first / left_shape;
@@ -263,7 +263,7 @@ tensor_t Tensor::view(const std::vector<size_t> &shape) const {
         }
 
         if(!merged_dims.empty()){
-            EXCEPTION_INVALID_SHAPE;
+            EXCEPTION_INVALID_VIEW_SHAPE;
         }
 
         return std::shared_ptr<Tensor>(new Tensor(new_meta, _storage));

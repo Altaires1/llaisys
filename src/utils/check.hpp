@@ -58,10 +58,10 @@
         throw std::invalid_argument("Shapes mismatch");                                \
     } while (0)
 
-#define EXCEPTION_INVALID_SHAPE                                                        \
+#define EXCEPTION_INVALID_VIEW_SHAPE                                                        \
     do {                                                                               \
-        std::cerr << "[ERROR] Invalid shape" << EXCEPTION_LOCATION_MSG << std::endl;   \
-        throw std::invalid_argument("Invalid shape");                                  \
+        std::cerr << "[ERROR] Invalid view shape" << EXCEPTION_LOCATION_MSG << std::endl;   \
+        throw std::invalid_argument("Invalid view shape");                                  \
     } while (0)
 
 #define CHECK_SAME_SHAPE(FIRST, ...) \
