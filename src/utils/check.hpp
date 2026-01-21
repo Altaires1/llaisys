@@ -110,3 +110,9 @@
             }                                                    \
         }                                                        \
     } while (0)
+
+#define EXCEPTION_OUT_OF_MEMORY                                                        \   
+    do {                                                                               \
+        std::cerr << "[ERROR] Out of memory" << EXCEPTION_LOCATION_MSG << std::endl;   \
+        throw std::bad_alloc();                                                        \
+    } while (0)

@@ -37,6 +37,9 @@ public:
     int deviceId() const;
     size_t numel() const;
     size_t elementSize() const;
+    
+    // Get data on host
+    std::shared_ptr<const std::byte> host_data() const;
 
     std::string info() const;
     void debug() const;

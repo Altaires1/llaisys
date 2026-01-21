@@ -76,6 +76,43 @@ size_t Tensor::elementSize() const {
     return utils::dsize(_meta.dtype);
 }
 
+std::shared_ptr<const std::byte> Tensor::host_data() const {
+    core::context().setDevice(this->deviceType(), this->deviceId());
+    core::context().runtime().api()->device_synchronize();
+    
+    size_t data_size = this->numel() * this->elementSize();
+    
+    if (this->deviceType() == LLAISYS_DEVICE_CPU) {
+        // If already on CPU, return a shared_ptr that doesn't own the memory
+        // Note: This is safe because the tensor still owns the memory
+        return std::shared_ptr<const std::byte>(this->data(), [](const std::byte*) {});
+    } else {
+        // Allocate host memory
+        void* host_mem = std::malloc(data_size);
+        if (!host_mem) {
+            EXCEPTION_OUT_OF_MEMORY;
+        }
+        
+        // Wrap in shared_ptr with custom deleter
+        std::shared_ptr<const std::byte> result(
+            static_cast<const std::byte*>(host_mem), 
+            [](const std::byte* ptr) {
+                std::free(const_cast<std::byte*>(ptr));
+            }
+        );
+        
+        // Copy data from device to host
+        core::context().runtime().api()->memcpy_sync(
+            const_cast<std::byte*>(result.get()),
+            this->data(),
+            data_size,
+            LLAISYS_MEMCPY_D2H
+        );
+        
+        return result;
+    }
+}
+
 std::string Tensor::info() const {
     std::stringstream ss;
 
