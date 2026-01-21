@@ -187,8 +187,30 @@ bool Tensor::isContiguous() const {
 }
 
 tensor_t Tensor::permute(const std::vector<size_t> &order) const {
-    TO_BE_IMPLEMENTED();
-    return std::shared_ptr<Tensor>(new Tensor(_meta, _storage));
+    if(this->ndim() != order.size()){
+        EXCEPTION_INVALID_PERMUTE_ORDER;
+    }
+
+    TensorMeta new_meta = this->_meta;
+    new_meta.shape.clear();
+    new_meta.strides.clear();
+
+    std::unordered_map<size_t,bool> tag;
+
+    size_t ndim = this->ndim();
+    
+    for(size_t idx : order){
+        if(idx < 0 || idx >= ndim){
+            EXCEPTION_INVALID_PERMUTE_ORDER;
+        }
+        if(tag[idx]){
+            EXCEPTION_INVALID_PERMUTE_ORDER;
+        }
+        tag[idx] = true;
+        new_meta.shape.emplace_back(this->shape()[idx]);
+        new_meta.strides.emplace_back(this->strides()[idx]);
+    }
+    return std::shared_ptr<Tensor>(new Tensor(new_meta, _storage));
 }
 
 tensor_t Tensor::view(const std::vector<size_t> &shape) const {

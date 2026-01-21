@@ -64,10 +64,10 @@
         throw std::invalid_argument("Invalid view shape");                                  \
     } while (0)
 
-#define EXCEPTION_INVALID_PERMUTE_SHAPE                                                        \
+#define EXCEPTION_INVALID_PERMUTE_ORDER                                                        \
     do {                                                                                       \
-        std::cerr << "[ERROR] Invalid permute shape" << EXCEPTION_LOCATION_MSG << std::endl;   \
-        throw std::invalid_argument("Invalid permute shape");                                  \
+        std::cerr << "[ERROR] Invalid permute order" << EXCEPTION_LOCATION_MSG << std::endl;   \
+        throw std::invalid_argument("Invalid permute order");                                  \
     } while (0)
 
 #define CHECK_SAME_SHAPE(FIRST, ...) \
