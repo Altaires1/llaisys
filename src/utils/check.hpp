@@ -70,6 +70,18 @@
         throw std::invalid_argument("Invalid permute order");                                  \
     } while (0)
 
+#define EXCEPTION_INVALID_SLICE_DIM                                                        \
+    do {                                                                                   \
+        std::cerr << "[ERROR] Invalid slice dim" << EXCEPTION_LOCATION_MSG << std::endl;   \
+        throw std::invalid_argument("Invalid slice dim");                                  \
+    } while (0)    
+
+#define EXCEPTION_INVALID_SLICE_RANGE                                                        \
+    do {                                                                                     \
+        std::cerr << "[ERROR] Invalid slice range" << EXCEPTION_LOCATION_MSG << std::endl;   \
+        throw std::invalid_argument("Invalid slice range");                                  \
+    } while (0)    
+
 #define CHECK_SAME_SHAPE(FIRST, ...) \
     CHECK_SAME(EXCEPTION_SHAPE_MISMATCH, FIRST, __VA_ARGS__)
 

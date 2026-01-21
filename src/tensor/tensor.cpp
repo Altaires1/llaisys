@@ -294,8 +294,20 @@ tensor_t Tensor::view(const std::vector<size_t> &shape) const {
 }
 
 tensor_t Tensor::slice(size_t dim, size_t start, size_t end) const {
-    TO_BE_IMPLEMENTED();
-    return std::shared_ptr<Tensor>(new Tensor(_meta, _storage));
+    if (dim >= this->ndim()) {
+        EXCEPTION_INVALID_SLICE_DIM;
+    }
+    
+    if (start > end || end > this->shape()[dim]) {
+        EXCEPTION_INVALID_SLICE_RANGE;
+    }
+    
+    TensorMeta new_meta = this->_meta;
+    new_meta.shape[dim] = end - start;
+    
+    size_t new_offset = this->_offset + start * this->strides()[dim] * this->elementSize();
+    
+    return std::shared_ptr<Tensor>(new Tensor(new_meta, _storage, new_offset));
 }
 
 void Tensor::load(const void *src_) {
