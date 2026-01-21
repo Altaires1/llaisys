@@ -59,9 +59,15 @@
     } while (0)
 
 #define EXCEPTION_INVALID_VIEW_SHAPE                                                        \
-    do {                                                                               \
+    do {                                                                                    \
         std::cerr << "[ERROR] Invalid view shape" << EXCEPTION_LOCATION_MSG << std::endl;   \
         throw std::invalid_argument("Invalid view shape");                                  \
+    } while (0)
+
+#define EXCEPTION_INVALID_PERMUTE_SHAPE                                                        \
+    do {                                                                                       \
+        std::cerr << "[ERROR] Invalid permute shape" << EXCEPTION_LOCATION_MSG << std::endl;   \
+        throw std::invalid_argument("Invalid permute shape");                                  \
     } while (0)
 
 #define CHECK_SAME_SHAPE(FIRST, ...) \
