@@ -1,6 +1,9 @@
 #include "op.hpp"
 
-#include <cstring>
+#include "../../core/llaisys_core.hpp"
+#include "../../utils.hpp"
+
+#include "cpu/embedding_cpu.hpp"
 
 namespace llaisys::ops {
 void embedding(tensor_t out, tensor_t index, tensor_t weight) {
@@ -22,31 +25,33 @@ void embedding(tensor_t out, tensor_t index, tensor_t weight) {
     // Check data type consistency
     CHECK_ARGUMENT(out->dtype() == weight->dtype(), "output and weight tensors must have the same data type");
 
-    // Get element size
-    size_t elem_size = utils::dsize(out->dtype());
+    // Check device consistency
+    CHECK_SAME_DEVICE(out, index, weight);
+    
+    // Check contiguousness
+    ASSERT(out->isContiguous() && index->isContiguous() && weight->isContiguous(), 
+           "Embedding: all tensors must be contiguous.");
 
-    // Get data on host
-    const auto index_data = static_cast<const int64_t*>(reinterpret_cast<const void*>(index->host_data().get()));
-    const auto weight_data = static_cast<const std::byte*>(weight->host_data().get());
-
-    // Allocate temporary memory for output on host
-    std::byte* out_data = new std::byte[out->numel() * elem_size];
-
-    // Perform embedding lookup
+    // 验证索引值是否在有效范围内 - 对所有设备类型都需要检查
+    const auto index_data = static_cast<const int64_t*>(reinterpret_cast<const void*>(index->data()));
     for (size_t i = 0; i < index_size; ++i) {
         int64_t idx = index_data[i];
         CHECK_ARGUMENT(idx >= 0 && idx < static_cast<int64_t>(weight_rows), "index value out of bounds");
-        
-        // Copy the idx-th row from weight to output
-        const std::byte* src_row = weight_data + (static_cast<size_t>(idx) * weight_cols * elem_size);
-        std::byte* dst_row = out_data + (i * weight_cols * elem_size);
-        std::memcpy(dst_row, src_row, weight_cols * elem_size);
     }
 
-    // Load result back to output tensor
-    out->load(out_data);
+    llaisys::core::context().setDevice(out->deviceType(), out->deviceId());
 
-    // Free temporary memory
-    delete[] out_data;
+    switch (out->deviceType()) {
+    case LLAISYS_DEVICE_CPU:
+        return cpu::embedding(out->data(), index->data(), weight->data(), 
+                             out->dtype(), index_size, weight_cols);
+#ifdef ENABLE_NVIDIA_API
+    case LLAISYS_DEVICE_NVIDIA:
+        TO_BE_IMPLEMENTED();
+        return;
+#endif
+    default:
+        EXCEPTION_UNSUPPORTED_DEVICE;
+    }
 }
 } // namespace llaisys::ops
