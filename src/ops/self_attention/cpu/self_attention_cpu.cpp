@@ -80,7 +80,7 @@ void self_attention_impl(
                 exp_sum = eps;
             }
             
-            FloatT inv_exp_sum = 1.0 / exp_sum;
+            FloatT inv_exp_sum = 1.0f / exp_sum;
 
             for (size_t kv_idx = 0; kv_idx <= mask_idx; ++kv_idx) {
                 attn_weights[kv_idx] *= inv_exp_sum;

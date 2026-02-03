@@ -16,7 +16,7 @@ void rms_norm_(T *out, const T *in, const T *weight, size_t batch_size, size_t h
         T *row_out = out + i * hidden_size;
         
         // Calculate sum of squares
-        FloatT sum_sq = 0.0;
+        FloatT sum_sq = 0.0f;
         for (size_t j = 0; j < hidden_size; ++j) {
             sum_sq += llaisys::utils::cast<FloatT>(row_in[j]) * llaisys::utils::cast<FloatT>(row_in[j]);
         }
@@ -24,7 +24,7 @@ void rms_norm_(T *out, const T *in, const T *weight, size_t batch_size, size_t h
         // Calculate RMS
         FloatT mean_sq = sum_sq / static_cast<FloatT>(hidden_size);
         FloatT rms = std::sqrt(mean_sq + static_cast<FloatT>(eps));
-        FloatT rms_inv = 1.0 / rms;
+        FloatT rms_inv = 1.0f / rms;
         
         // Apply normalization and weight
         for (size_t j = 0; j < hidden_size; ++j) {

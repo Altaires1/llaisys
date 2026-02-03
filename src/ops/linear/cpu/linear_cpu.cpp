@@ -16,7 +16,7 @@ void linear_(
     // out: (batch_size, out_features)
     for (size_t b = 0; b < batch_size; ++b) {
         for (size_t o = 0; o < out_features; ++o) {
-            FloatT sum = 0;
+            FloatT sum = 0.0f;
             for (size_t i = 0; i < in_features; ++i) {
                 // in[b][i] * weight[o][i]
                 sum += llaisys::utils::cast<FloatT>(in[b * in_features + i]) * llaisys::utils::cast<FloatT>(weight[o * in_features + i]);
