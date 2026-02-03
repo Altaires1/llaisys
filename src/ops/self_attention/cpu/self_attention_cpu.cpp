@@ -68,7 +68,7 @@ void self_attention_impl(
             for (size_t kv_idx = 0; kv_idx <= mask_idx; ++kv_idx) {
                 FloatT diff = attn_weights[kv_idx] - max_val;
                 FloatT exp_val = (diff < -std::numeric_limits<FloatT>::max_exponent) 
-                                ? 0.0 
+                                ? 0.0f 
                                 : std::exp(diff);
                 attn_weights[kv_idx] = exp_val;
                 exp_sum += exp_val;
