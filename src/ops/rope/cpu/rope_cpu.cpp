@@ -8,26 +8,6 @@
 
 namespace llaisys::ops::cpu {
 
-// Helper template to get appropriate calculation type
-template <typename T>
-struct CalcType {
-    using type = T;
-};
-
-// Specialize for fp16_t and bf16_t to use float for calculations
-template <>
-struct CalcType<llaisys::fp16_t> {
-    using type = float;
-};
-
-template <>
-struct CalcType<llaisys::bf16_t> {
-    using type = float;
-};
-
-template <typename T>
-using calc_type_t = typename CalcType<T>::type;
-
 // Template implementation for different data types
 template <typename T>
 void rope_impl(
@@ -46,7 +26,7 @@ void rope_impl(
     const size_t dim_half = head_dim / 2;
     
     // Use appropriate calculation type based on input type
-    using CalcT = calc_type_t<T>;
+    using FloatT = llaisys::float_type_t<T>;
     
     for (size_t seq_idx = 0; seq_idx < seq_len; ++seq_idx) {
         const int64_t pos = pos_ids_data[seq_idx];
@@ -56,22 +36,22 @@ void rope_impl(
             
             for (size_t dim_idx = 0; dim_idx < dim_half; ++dim_idx) {
                 // Calculate frequency: phi = pos / theta^(2j/d)
-                const CalcT exponent = static_cast<CalcT>(dim_idx) * 2.0 / static_cast<CalcT>(head_dim);
-                const CalcT theta_pow = std::pow(static_cast<CalcT>(theta), exponent);
-                const CalcT phi = static_cast<CalcT>(pos) / theta_pow;
+                const FloatT exponent = static_cast<FloatT>(dim_idx) * 2.0 / static_cast<FloatT>(head_dim);
+                const FloatT theta_pow = std::pow(static_cast<FloatT>(theta), exponent);
+                const FloatT phi = static_cast<FloatT>(pos) / theta_pow;
                 
-                const CalcT cos_phi = std::cos(phi);
-                const CalcT sin_phi = std::sin(phi);
+                const FloatT cos_phi = std::cos(phi);
+                const FloatT sin_phi = std::sin(phi);
                 
                 // Get input values with appropriate conversion
-                const CalcT a = llaisys::utils::cast<CalcT>(in_data[base_idx + dim_idx]);
-                const CalcT b = llaisys::utils::cast<CalcT>(in_data[base_idx + dim_half + dim_idx]);
+                const FloatT a = llaisys::utils::cast<FloatT>(in_data[base_idx + dim_idx]);
+                const FloatT b = llaisys::utils::cast<FloatT>(in_data[base_idx + dim_half + dim_idx]);
                 
                 // Apply rotation with appropriate precision:
                 // a' = a * cos(phi) - b * sin(phi)
                 // b' = b * cos(phi) + a * sin(phi)
-                const CalcT a_rotated = a * cos_phi - b * sin_phi;
-                const CalcT b_rotated = b * cos_phi + a * sin_phi;
+                const FloatT a_rotated = a * cos_phi - b * sin_phi;
+                const FloatT b_rotated = b * cos_phi + a * sin_phi;
                 
                 // Convert back to original type
                 out_data[base_idx + dim_idx] = llaisys::utils::cast<T>(a_rotated);

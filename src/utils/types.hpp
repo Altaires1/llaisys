@@ -14,6 +14,26 @@ struct CustomBFloat16 {
 };
 typedef struct CustomBFloat16 bf16_t;
 
+// Helper template to get appropriate calculation type
+template <typename T>
+struct FloatType {
+    using type = T;
+};
+
+// Specialize for fp16_t and bf16_t to use float for calculations
+template <>
+struct FloatType<llaisys::fp16_t> {
+    using type = float;
+};
+
+template <>
+struct FloatType<llaisys::bf16_t> {
+    using type = float;
+};
+
+template <typename T>
+using float_type_t = typename FloatType<T>::type;
+
 namespace utils {
 inline size_t dsize(llaisysDataType_t dtype) {
     switch (dtype) {

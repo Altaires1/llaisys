@@ -8,87 +8,33 @@
 // 对于f32和f64，直接使用其类型进行计算
 template <typename T>
 void rms_norm_(T *out, const T *in, const T *weight, size_t batch_size, size_t hidden_size, float eps) {
+
+    using FloatT = llaisys::float_type_t<T>;
+
     for (size_t i = 0; i < batch_size; ++i) {
         const T *row_in = in + i * hidden_size;
         T *row_out = out + i * hidden_size;
         
         // Calculate sum of squares
-        T sum_sq = 0.0;
+        FloatT sum_sq = 0.0;
         for (size_t j = 0; j < hidden_size; ++j) {
-            sum_sq += row_in[j] * row_in[j];
+            sum_sq += llaisys::utils::cast<FloatT>(row_in[j]) * llaisys::utils::cast<FloatT>(row_in[j]);
         }
         
         // Calculate RMS
-        T mean_sq = sum_sq / static_cast<T>(hidden_size);
-        T rms = std::sqrt(mean_sq + static_cast<T>(eps));
-        T rms_inv = 1.0 / rms;
+        FloatT mean_sq = sum_sq / static_cast<FloatT>(hidden_size);
+        FloatT rms = std::sqrt(mean_sq + static_cast<FloatT>(eps));
+        FloatT rms_inv = 1.0 / rms;
         
         // Apply normalization and weight
         for (size_t j = 0; j < hidden_size; ++j) {
-            T val = row_in[j] * rms_inv;
-            T weighted_val = val * weight[j];
-            row_out[j] = weighted_val;
+            FloatT val = llaisys::utils::cast<FloatT>(row_in[j]) * rms_inv;
+            FloatT weighted_val = val * llaisys::utils::cast<FloatT>(weight[j]);
+            row_out[j] = llaisys::utils::cast<T>(weighted_val);
         }
     }
 }
 
-// 专门为fp16_t类型的特化实现
-template <>
-void rms_norm_<llaisys::fp16_t>(llaisys::fp16_t *out, const llaisys::fp16_t *in, const llaisys::fp16_t *weight, size_t batch_size, size_t hidden_size, float eps) {
-    for (size_t i = 0; i < batch_size; ++i) {
-        const llaisys::fp16_t *row_in = in + i * hidden_size;
-        llaisys::fp16_t *row_out = out + i * hidden_size;
-        
-        // Calculate sum of squares using float for better precision
-        float sum_sq = 0.0f;
-        for (size_t j = 0; j < hidden_size; ++j) {
-            float val = llaisys::utils::cast<float>(row_in[j]);
-            sum_sq += val * val;
-        }
-        
-        // Calculate RMS
-        float mean_sq = sum_sq / static_cast<float>(hidden_size);
-        float rms = std::sqrt(mean_sq + eps);
-        float rms_inv = 1.0f / rms;
-        
-        // Apply normalization and weight
-        for (size_t j = 0; j < hidden_size; ++j) {
-            float val = llaisys::utils::cast<float>(row_in[j]) * rms_inv;
-            float weight_val = llaisys::utils::cast<float>(weight[j]);
-            float weighted_val = val * weight_val;
-            row_out[j] = llaisys::utils::cast<llaisys::fp16_t>(weighted_val);
-        }
-    }
-}
-
-// 专门为bf16_t类型的特化实现
-template <>
-void rms_norm_<llaisys::bf16_t>(llaisys::bf16_t *out, const llaisys::bf16_t *in, const llaisys::bf16_t *weight, size_t batch_size, size_t hidden_size, float eps) {
-    for (size_t i = 0; i < batch_size; ++i) {
-        const llaisys::bf16_t *row_in = in + i * hidden_size;
-        llaisys::bf16_t *row_out = out + i * hidden_size;
-        
-        // Calculate sum of squares using float for better precision
-        float sum_sq = 0.0f;
-        for (size_t j = 0; j < hidden_size; ++j) {
-            float val = llaisys::utils::cast<float>(row_in[j]);
-            sum_sq += val * val;
-        }
-        
-        // Calculate RMS
-        float mean_sq = sum_sq / static_cast<float>(hidden_size);
-        float rms = std::sqrt(mean_sq + eps);
-        float rms_inv = 1.0f / rms;
-        
-        // Apply normalization and weight
-        for (size_t j = 0; j < hidden_size; ++j) {
-            float val = llaisys::utils::cast<float>(row_in[j]) * rms_inv;
-            float weight_val = llaisys::utils::cast<float>(weight[j]);
-            float weighted_val = val * weight_val;
-            row_out[j] = llaisys::utils::cast<llaisys::bf16_t>(weighted_val);
-        }
-    }
-}
 
 namespace llaisys::ops::cpu {
 void rms_norm(std::byte *out, const std::byte *in, const std::byte *weight, llaisysDataType_t type, size_t batch_size, size_t hidden_size, float eps) {
