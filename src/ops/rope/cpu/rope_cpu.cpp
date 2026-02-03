@@ -36,7 +36,7 @@ void rope_impl(
             
             for (size_t dim_idx = 0; dim_idx < dim_half; ++dim_idx) {
                 // Calculate frequency: phi = pos / theta^(2j/d)
-                const FloatT exponent = static_cast<FloatT>(dim_idx) * 2.0 / static_cast<FloatT>(head_dim);
+                const FloatT exponent = static_cast<FloatT>(dim_idx) * 2.0f / static_cast<FloatT>(head_dim);
                 const FloatT theta_pow = std::pow(static_cast<FloatT>(theta), exponent);
                 const FloatT phi = static_cast<FloatT>(pos) / theta_pow;
                 
