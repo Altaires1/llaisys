@@ -12,6 +12,8 @@ from .llaisys_types import llaisysStream_t
 from .tensor import llaisysTensor_t
 from .tensor import load_tensor
 from .ops import load_ops
+from .kv_cache import llaisysKVCache_t
+from .kv_cache import load_kv_cache
 
 
 def load_shared_library():
@@ -38,6 +40,7 @@ LIB_LLAISYS = load_shared_library()
 load_runtime(LIB_LLAISYS)
 load_tensor(LIB_LLAISYS)
 load_ops(LIB_LLAISYS)
+load_kv_cache(LIB_LLAISYS)
 
 
 __all__ = [
@@ -45,6 +48,7 @@ __all__ = [
     "LlaisysRuntimeAPI",
     "llaisysStream_t",
     "llaisysTensor_t",
+    "llaisysKVCache_t",
     "llaisysDataType_t",
     "DataType",
     "llaisysDeviceType_t",
