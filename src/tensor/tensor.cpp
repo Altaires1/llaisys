@@ -2,6 +2,8 @@
 
 #include "../utils.hpp"
 
+#include "../ops/rearrange/op.hpp" 
+#include <functional> 
 #include <cstring>
 #include <numeric>
 #include <sstream>
@@ -367,8 +369,27 @@ void Tensor::load(const void *src_) {
 }
 
 tensor_t Tensor::contiguous() const {
-    TO_BE_IMPLEMENTED();
-    return std::shared_ptr<Tensor>(new Tensor(_meta, _storage));
+    if (this->isContiguous()) {
+        // If already contiguous, return a new Tensor object that shares the same underlying storage
+        // and metadata. This is a lightweight copy of the Tensor object itself, not its data.
+        return std::shared_ptr<Tensor>(new Tensor(this->_meta, this->_storage, this->_offset));
+    }
+
+    // Create a new tensor with contiguous memory layout.
+    // The `create` method ensures the default strides for the new_tensor are contiguous.
+    tensor_t new_tensor = Tensor::create(this->shape(), this->dtype(), this->deviceType(), this->deviceId());
+
+    // Create a temporary tensor_t that points to the same underlying Tensor object as `this`.
+    // This allows passing `this` (a const Tensor*) as a `tensor_t` (shared_ptr<Tensor>) to `rearrange`.
+    // This new Tensor object will share the `_storage` with `this`.
+    tensor_t current_tensor_as_shared = std::shared_ptr<Tensor>(new Tensor(this->_meta, this->_storage, this->_offset));
+
+    // Use the rearrange operator to copy data from the current (potentially non-contiguous)
+    // tensor to the newly created contiguous tensor.
+    // The rearrange op handles the strided access for 'in' and writes contiguously to 'out'.
+    llaisys::ops::rearrange(new_tensor, current_tensor_as_shared);
+
+    return new_tensor;
 }
 
 tensor_t Tensor::reshape(const std::vector<size_t> &shape) const {

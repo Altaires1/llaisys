@@ -45,8 +45,47 @@ def test_tensor():
     llaisys_tensor_slice.debug()
     assert llaisys_tensor_slice.shape() == torch_tensor_slice.shape
     assert llaisys_tensor_slice.strides() == torch_tensor_slice.stride()
-    assert llaisys_tensor.is_contiguous() == torch_tensor.is_contiguous()
+    assert llaisys_tensor_slice.is_contiguous() == torch_tensor_slice.is_contiguous() # Check slice contiguity
     assert check_equal(llaisys_tensor_slice, torch_tensor_slice)
+
+    # Test contiguous
+    print("===Test contiguous===")
+    # Create a non-contiguous tensor by permuting
+    torch_non_contiguous = torch_tensor.permute(0, 2, 1)
+    llaisys_non_contiguous = llaisys_tensor.permute(0, 2, 1)
+
+    # Assert they are indeed non-contiguous initially
+    assert not llaisys_non_contiguous.is_contiguous()
+    assert not torch_non_contiguous.is_contiguous()
+
+    # Call contiguous()
+    torch_contiguous_result = torch_non_contiguous.contiguous()
+    llaisys_contiguous_result = llaisys_non_contiguous.contiguous()
+
+    # Assert results are contiguous
+    assert llaisys_contiguous_result.is_contiguous()
+    assert torch_contiguous_result.is_contiguous()
+
+    # Verify shape and data
+    assert llaisys_contiguous_result.shape() == torch_contiguous_result.shape
+    assert check_equal(llaisys_contiguous_result, torch_contiguous_result)
+
+    # Test contiguous on an already contiguous tensor
+    print("===Test contiguous on already contiguous tensor===")
+    llaisys_already_contiguous = llaisys.Tensor(
+        (2, 2), dtype=llaisys_dtype("f32"), device=llaisys_device("cpu")
+    )
+    torch_already_contiguous = torch.randn(2, 2, dtype=torch_dtype("f32"))
+    llaisys_already_contiguous.load(torch_already_contiguous.data_ptr())
+    
+    assert llaisys_already_contiguous.is_contiguous()
+
+    llaisys_res_contig = llaisys_already_contiguous.contiguous()
+    torch_res_contig = torch_already_contiguous.contiguous() # Should return self
+    
+    assert llaisys_res_contig.is_contiguous()
+    assert llaisys_res_contig.shape() == torch_res_contig.shape
+    assert check_equal(llaisys_res_contig, torch_res_contig)
 
 
 if __name__ == "__main__":

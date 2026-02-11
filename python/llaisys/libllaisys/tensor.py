@@ -76,3 +76,7 @@ def load_tensor(lib):
         c_size_t,  # end  : exclusive
     ]
     lib.tensorSlice.restype = llaisysTensor_t
+
+    # Function: tensorContiguous
+    lib.tensorContiguous.argtypes = [llaisysTensor_t]
+    lib.tensorContiguous.restype = llaisysTensor_t

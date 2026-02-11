@@ -95,3 +95,7 @@ class Tensor:
                 self._tensor, c_size_t(dim), c_size_t(start), c_size_t(end)
             )
         )
+    
+    def contiguous(self):
+        return Tensor(tensor=LIB_LLAISYS.tensorContiguous(self._tensor))
+
