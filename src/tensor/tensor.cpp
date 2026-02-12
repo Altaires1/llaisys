@@ -249,7 +249,7 @@ tensor_t Tensor::permute(const std::vector<size_t> &order) const {
         new_meta.shape.emplace_back(this->shape()[idx]);
         new_meta.strides.emplace_back(this->strides()[idx]);
     }
-    return std::shared_ptr<Tensor>(new Tensor(new_meta, _storage));
+    return std::shared_ptr<Tensor>(new Tensor(new_meta, _storage, _offset));
 }
 
 tensor_t Tensor::view(const std::vector<size_t> &shape) const {
@@ -273,7 +273,7 @@ tensor_t Tensor::view(const std::vector<size_t> &shape) const {
         new_meta.strides[i] = expected_stride;
         expected_stride *= shape[i];
     }
-    return std::shared_ptr<Tensor>(new Tensor(new_meta, _storage));
+    return std::shared_ptr<Tensor>(new Tensor(new_meta, _storage, _offset));
 }
 
 tensor_t Tensor::slice(size_t dim, size_t start, size_t end) const {
