@@ -109,6 +109,7 @@ class MultiHeadAttention:
         self,
         x: Tensor,
         pos_ids: Tensor,
+        layer_idx: int = None,
         kv_cache=None,
     ) -> Tensor:
         """Forward pass of attention
@@ -116,6 +117,7 @@ class MultiHeadAttention:
         Args:
             x: Input tensor of shape (batch, seq_len, hidden_size)
             pos_ids: Position IDs tensor
+            layer_idx: Optional layer index for KV cache
             kv_cache: Optional KV cache for inference
             
         Returns:
@@ -137,6 +139,31 @@ class MultiHeadAttention:
         q = self.rope.forward(q, pos_ids)
         k = self.rope.forward(k, pos_ids)
         
+        # Handle KV cache
+        if kv_cache is not None and layer_idx is not None:
+            # Update cache with new keys and values
+            kv_cache.update(k, v, layer_idx, seq_len)
+            
+            # Get full keys and values from cache (including past tokens)
+            full_seq_len = kv_cache.get_size(layer_idx)
+            
+            # Create tensors for full KV
+            k_full = Tensor(
+                shape=(batch_size, full_seq_len, self.num_key_value_heads, self.head_dim),
+                dtype=k.dtype(),
+                device=k.device_type(),
+                device_id=k.device_id()
+            )
+            v_full = Tensor(
+                shape=(batch_size, full_seq_len, self.num_key_value_heads, self.head_dim),
+                dtype=v.dtype(),
+                device=v.device_type(),
+                device_id=v.device_id()
+            )
+            
+            kv_cache.get(k_full, v_full, layer_idx)
+            k, v = k_full, v_full
+
         # Compute attention scores
         scale = 1.0 / math.sqrt(self.head_dim)
         attn_output = self_attention_nd(q, k, v, scale)

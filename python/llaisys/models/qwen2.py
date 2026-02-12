@@ -10,7 +10,7 @@ from ..ops import Ops
 from ..runtime import RuntimeAPI
 from ..kv_cache import KVCache
 
-from .config import Qwen2Config
+from .config import Qwen2Config, Qwen2GenerationConfig
 from .weight_loader import WeightLoader
 from .embedding import Embedding
 from .attention import RMSNorm
@@ -40,6 +40,11 @@ class Qwen2:
         # Load configuration
         config_path = model_path / "config.json"
         self.config = Qwen2Config.from_json_file(str(config_path))
+        
+        # Load generation configuration
+        gen_config_path = model_path / "generation_config.json"
+        self.generation_config = Qwen2GenerationConfig.from_json_file(str(gen_config_path))
+        
         print(f"[Qwen2] Config loaded: {self.config.hidden_size}D, "
               f"{self.config.num_hidden_layers}L, vocab={self.config.vocab_size}")
         
@@ -176,14 +181,9 @@ class Qwen2:
         positions = np.arange(seq_len, dtype=np.int64)
         positions = np.tile(positions, (batch_size, 1))
         
-        # Copy to device
-        positions_ptr = positions.ctypes.data_as(c_void_p)
-        self.runtime.memcpy_sync(
-            position_ids.data_ptr(),
-            positions_ptr,
-            positions.nbytes,
-            MemcpyKind.H2D
-        )
+        # Load data to tensor using the load() method
+        # This handles the memory transfer appropriately based on device type
+        position_ids.load(positions.ctypes.data_as(c_void_p))
         
         return position_ids
     
@@ -262,14 +262,8 @@ class Qwen2:
             device_id=0
         )
         
-        # Copy input IDs to device
-        input_ptr = input_ids_np.ctypes.data_as(c_void_p)
-        self.runtime.memcpy_sync(
-            input_ids.data_ptr(),
-            input_ptr,
-            input_ids_np.nbytes,
-            MemcpyKind.H2D
-        )
+        # Load input IDs to device using Tensor API
+        input_ids.load(input_ids_np.ctypes.data_as(c_void_p))
         
         # Initialize KV cache with dynamic sizing based on actual input length
         # For small inputs (like in testing), use minimal cache to save memory
@@ -318,13 +312,8 @@ class Qwen2:
                     device=self.device,
                     device_id=0
                 )
-                last_token_ptr = last_token.ctypes.data_as(c_void_p)
-                self.runtime.memcpy_sync(
-                    current_input.data_ptr(),
-                    last_token_ptr,
-                    last_token.nbytes,
-                    MemcpyKind.H2D
-                )
+                # Load last token using Tensor API
+                current_input.load(last_token.ctypes.data_as(c_void_p))
             
             # Forward pass
             logits = self.forward(current_input, kv_cache=kv_cache)

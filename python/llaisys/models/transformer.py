@@ -91,7 +91,7 @@ class TransformerBlock:
         """
         # Self-attention with residual connection
         attn_input = self.attn_norm.forward(x)
-        attn_output = self.attention.forward(attn_input, pos_ids, kv_cache)
+        attn_output = self.attention.forward(attn_input, pos_ids, self.layer_idx, kv_cache)
         x = self._add_residual(x, attn_output)
         
         # Feed-forward with residual connection

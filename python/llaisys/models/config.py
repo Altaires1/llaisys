@@ -75,3 +75,45 @@ class Qwen2Config:
     def num_key_value_groups(self) -> int:
         """Calculate number of key-value groups (for GQA)"""
         return self.num_attention_heads // self.num_key_value_heads
+
+
+@dataclass
+class Qwen2GenerationConfig:
+    """Qwen2 generation configuration"""
+    
+    # Common generation parameters
+    max_new_tokens: int = 128
+    top_k: int = 1
+    top_p: float = 0.8
+    temperature: float = 0.8
+    do_sample: bool = False
+    
+    # Tokens
+    bos_token_id: int = 151643
+    eos_token_id: int = 151643
+    pad_token_id: Optional[int] = None
+    
+    @classmethod
+    def from_json_file(cls, config_path: str) -> "Qwen2GenerationConfig":
+        """Load generation configuration from JSON file
+        
+        Args:
+            config_path: Path to the generation_config.json file
+            
+        Returns:
+            Qwen2GenerationConfig instance
+        """
+        config_path = Path(config_path)
+        if not config_path.exists():
+            return cls()
+            
+        with open(config_path, "r") as f:
+            config_dict = json.load(f)
+        
+        # Filter out keys not in dataclass
+        filtered_dict = {
+            k: v for k, v in config_dict.items() 
+            if k in cls.__dataclass_fields__
+        }
+        
+        return cls(**filtered_dict)
