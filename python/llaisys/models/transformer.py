@@ -111,11 +111,5 @@ class TransformerBlock:
         Returns:
             Sum tensor
         """
-        output = Tensor(
-            shape=x.shape(),
-            dtype=x.dtype(),
-            device=x.device_type(),
-            device_id=x.device_id()
-        )
-        Ops.add(output, x, y)
-        return output
+        from .utils import add_nd
+        return add_nd(x, y)
