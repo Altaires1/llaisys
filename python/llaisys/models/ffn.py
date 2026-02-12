@@ -9,21 +9,21 @@ class FeedForwardNetwork:
     def __init__(
         self,
         gate_weight: Tensor,
-        gate_bias: Tensor,
         up_weight: Tensor,
-        up_bias: Tensor,
         down_weight: Tensor,
-        down_bias: Tensor,
+        gate_bias: Tensor = None,
+        up_bias: Tensor = None,
+        down_bias: Tensor = None,
     ):
         """Initialize FFN layer
         
         Args:
             gate_weight: Weight for gate projection
-            gate_bias: Bias for gate projection
             up_weight: Weight for up projection
-            up_bias: Bias for up projection
             down_weight: Weight for down projection (output)
-            down_bias: Bias for down projection (output)
+            gate_bias: Optional bias for gate projection
+            up_bias: Optional bias for up projection
+            down_bias: Optional bias for down projection (output)
         """
         self.gate_weight = gate_weight
         self.gate_bias = gate_bias

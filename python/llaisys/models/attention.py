@@ -62,13 +62,13 @@ class MultiHeadAttention:
         num_attention_heads: int,
         num_key_value_heads: int,
         q_weight: Tensor,
-        q_bias: Tensor,
         k_weight: Tensor,
-        k_bias: Tensor,
         v_weight: Tensor,
-        v_bias: Tensor,
         out_weight: Tensor,
-        out_bias: Tensor,
+        q_bias: Tensor = None,
+        k_bias: Tensor = None,
+        v_bias: Tensor = None,
+        out_bias: Tensor = None,
         rope_theta: float = 10000.0,
         eps: float = 1e-6,
     ):
@@ -79,13 +79,13 @@ class MultiHeadAttention:
             num_attention_heads: Number of query attention heads
             num_key_value_heads: Number of key-value heads
             q_weight: Weight for Q projection
-            q_bias: Bias for Q projection
             k_weight: Weight for K projection
-            k_bias: Bias for K projection
             v_weight: Weight for V projection
-            v_bias: Bias for V projection
             out_weight: Weight for output projection
-            out_bias: Bias for output projection
+            q_bias: Optional bias for Q projection
+            k_bias: Optional bias for K projection
+            v_bias: Optional bias for V projection
+            out_bias: Optional bias for output projection
             rope_theta: Theta for rotary embeddings
             eps: Epsilon for layer norm
         """
@@ -121,24 +121,21 @@ class MultiHeadAttention:
         Returns:
             Output tensor of shape (batch, seq_len, hidden_size)
         """
+        batch_size, seq_len, _ = x.shape()
+
         # Project to Q, K, V
         q = linear_nd(x, self.q_weight, self.q_bias)
         k = linear_nd(x, self.k_weight, self.k_bias)
         v = linear_nd(x, self.v_weight, self.v_bias)
         
-        # Apply RoPE to Q and K
-        q = self.rope.forward(q, pos_ids)
-        k = self.rope.forward(k, pos_ids)
-        
-        # self_attention_nd expects (..., q_len, n_head, head_dim)
-        # linear_nd output is (batch, seq_len, hidden_size)
-        # hidden_size = n_head * head_dim
-        # So we need to reshape
-        batch_size, seq_len, _ = x.shape()
-        
+        # Reshape to (batch, seq_len, n_heads, head_dim) before RoPE
         q = q.view(batch_size, seq_len, self.num_attention_heads, self.head_dim)
         k = k.view(batch_size, seq_len, self.num_key_value_heads, self.head_dim)
         v = v.view(batch_size, seq_len, self.num_key_value_heads, self.head_dim)
+
+        # Apply RoPE to Q and K
+        q = self.rope.forward(q, pos_ids)
+        k = self.rope.forward(k, pos_ids)
         
         # Compute attention scores
         scale = 1.0 / math.sqrt(self.head_dim)
