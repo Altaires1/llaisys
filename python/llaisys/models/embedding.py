@@ -1,7 +1,6 @@
 """Embedding layer for Qwen2 model"""
 from ..tensor import Tensor
-from ..ops import Ops
-from ..libllaisys import DeviceType, DataType
+from .utils import embedding_nd
 
 
 class Embedding:
@@ -27,30 +26,4 @@ class Embedding:
         Returns:
             Embedded tokens tensor with embedding_dim appended to input shape
         """
-        # Get original input shape
-        input_shape = input_ids.shape()
-
-        # Calculate total number of elements
-        total_elements = 1
-        for dim in input_shape:
-            total_elements *= dim
-
-        # Flatten input to 1D for C++ operation
-        input_ids_flat = input_ids.view(total_elements)
-
-        # Create flattened output tensor for C++ operation
-        output_flat = Tensor(
-            shape=(total_elements, self.embedding_dim),
-            dtype=self.weight.dtype(),
-            device=self.weight.device_type(),
-            device_id=self.weight.device_id()
-        )
-
-        # Call C++ embedding operation with 1D index and 2D output
-        Ops.embedding(output_flat, input_ids_flat, self.weight)
-
-        # Reshape output to final multi-dimensional shape
-        output_final_shape = input_shape + (self.embedding_dim,)
-        output = output_flat.view(*output_final_shape)
-
-        return output
+        return embedding_nd(input_ids, self.weight)

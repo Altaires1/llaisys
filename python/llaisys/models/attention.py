@@ -1,9 +1,7 @@
 """Attention layer for Qwen2 model"""
 import math
 from ..tensor import Tensor
-from ..ops import Ops
-from ..libllaisys import DeviceType, DataType
-from .utils import linear_nd
+from .utils import linear_nd, rms_norm_nd, rope_nd, self_attention_nd
 
 
 class RMSNorm:
@@ -28,16 +26,7 @@ class RMSNorm:
         Returns:
             Normalized tensor
         """
-        output = Tensor(
-            shape=x.shape(),
-            dtype=x.dtype(),
-            device=x.device_type(),
-            device_id=x.device_id()
-        )
-        
-        Ops.rms_norm(output, x, self.weight, self.eps)
-        
-        return output
+        return rms_norm_nd(x, self.weight, self.eps)
 
 
 class RotaryEmbedding:
@@ -63,16 +52,7 @@ class RotaryEmbedding:
         Returns:
             Rotated query tensor
         """
-        output = Tensor(
-            shape=q.shape(),
-            dtype=q.dtype(),
-            device=q.device_type(),
-            device_id=q.device_id()
-        )
-        
-        Ops.rope(output, q, pos_ids, self.theta)
-        
-        return output
+        return rope_nd(q, pos_ids, self.theta)
 
 
 class MultiHeadAttention:
@@ -143,70 +123,33 @@ class MultiHeadAttention:
         Returns:
             Output tensor of shape (batch, seq_len, hidden_size)
         """
-        batch_size, seq_len, _ = x.shape()
-        
-        # Project to Q, K, V (separate projections)
-        q = Tensor(
-            shape=(batch_size, seq_len, self.num_attention_heads * self.head_dim),
-            dtype=x.dtype(),
-            device=x.device_type(),
-            device_id=x.device_id()
-        )
-        linear_nd(q, x, self.q_weight, self.q_bias)
-        
-        k = Tensor(
-            shape=(batch_size, seq_len, self.num_key_value_heads * self.head_dim),
-            dtype=x.dtype(),
-            device=x.device_type(),
-            device_id=x.device_id()
-        )
-        linear_nd(k, x, self.k_weight, self.k_bias)
-        
-        v = Tensor(
-            shape=(batch_size, seq_len, self.num_key_value_heads * self.head_dim),
-            dtype=x.dtype(),
-            device=x.device_type(),
-            device_id=x.device_id()
-        )
-        linear_nd(v, x, self.v_weight, self.v_bias)
+        # Project to Q, K, V
+        q = linear_nd(x, self.q_weight, self.q_bias)
+        k = linear_nd(x, self.k_weight, self.k_bias)
+        v = linear_nd(x, self.v_weight, self.v_bias)
         
         # Apply RoPE to Q and K
         q = self.rope.forward(q, pos_ids)
         k = self.rope.forward(k, pos_ids)
         
-        # Reshape for attention computation
-        # (batch, seq_len, num_heads, head_dim) -> (batch, num_heads, seq_len, head_dim)
-        q_shape = (batch_size, seq_len, self.num_attention_heads, self.head_dim)
-        q = q.view(*q_shape).permute(0, 2, 1, 3)
+        # self_attention_nd expects (..., q_len, n_head, head_dim)
+        # linear_nd output is (batch, seq_len, hidden_size)
+        # hidden_size = n_head * head_dim
+        # So we need to reshape
+        batch_size, seq_len, _ = x.shape()
         
-        k_shape = (batch_size, seq_len, self.num_key_value_heads, self.head_dim)
-        k = k.view(*k_shape).permute(0, 2, 1, 3)
-        
-        v_shape = (batch_size, seq_len, self.num_key_value_heads, self.head_dim)
-        v = v.view(*v_shape).permute(0, 2, 1, 3)
+        q = q.view(batch_size, seq_len, self.num_attention_heads, self.head_dim)
+        k = k.view(batch_size, seq_len, self.num_key_value_heads, self.head_dim)
+        v = v.view(batch_size, seq_len, self.num_key_value_heads, self.head_dim)
         
         # Compute attention scores
         scale = 1.0 / math.sqrt(self.head_dim)
-        attn_output = Tensor(
-            shape=(batch_size, self.num_attention_heads, seq_len, self.head_dim),
-            dtype=x.dtype(),
-            device=x.device_type(),
-            device_id=x.device_id()
-        )
-        
-        Ops.self_attention(attn_output, q, k, v, scale)
+        attn_output = self_attention_nd(q, k, v, scale)
         
         # Reshape output back to (batch, seq_len, hidden_size)
-        attn_output = attn_output.permute(0, 2, 1, 3)  # (batch, seq_len, num_heads, head_dim)
         attn_output = attn_output.view(batch_size, seq_len, self.hidden_size)
         
         # Output projection
-        output = Tensor(
-            shape=(batch_size, seq_len, self.hidden_size),
-            dtype=x.dtype(),
-            device=x.device_type(),
-            device_id=x.device_id()
-        )
-        linear_nd(output, attn_output, self.out_weight, self.out_bias)
+        output = linear_nd(attn_output, self.out_weight, self.out_bias)
         
         return output
