@@ -253,8 +253,7 @@ tensor_t Tensor::permute(const std::vector<size_t> &order) const {
 }
 
 tensor_t Tensor::view(const std::vector<size_t> &shape) const {
-    
-    //首先判断数量是否匹配
+    // 首先判断数量是否匹配
     size_t new_numel = 1;
     for (size_t s : shape) {
         new_numel *= s;
@@ -263,73 +262,18 @@ tensor_t Tensor::view(const std::vector<size_t> &shape) const {
         EXCEPTION_INVALID_VIEW_SHAPE;
     }
 
-    if(isContiguous()){
-        TensorMeta new_meta = this->_meta;
-        new_meta.shape = shape;
-        new_meta.strides.resize(shape.size());
-        int64_t expected_stride = 1;
-        size_t new_shape_siz = shape.size();
-        for(int64_t i = new_shape_siz - 1; i >= 0; --i){
-            new_meta.strides[i] = expected_stride;
-            expected_stride *= shape[i];
-        }
-        return std::shared_ptr<Tensor>(new Tensor(new_meta, _storage));
+    ASSERT(isContiguous(), "view is only allowed on contiguous tensors");
+
+    TensorMeta new_meta = this->_meta;
+    new_meta.shape = shape;
+    new_meta.strides.resize(shape.size());
+    int64_t expected_stride = 1;
+    size_t new_shape_siz = shape.size();
+    for (int64_t i = new_shape_siz - 1; i >= 0; --i) {
+        new_meta.strides[i] = expected_stride;
+        expected_stride *= shape[i];
     }
-    else{
-        TensorMeta new_meta = this->_meta;
-        new_meta.shape = shape;
-        new_meta.strides.clear();
-        auto& new_strides = new_meta.strides;
-        //先合并连续的维度
-        std::vector<std::pair<int64_t,int64_t>> merged_dims;
-        size_t dim = this->ndim();
-        int64_t expected_stride = this->strides()[dim - 1];
-        int64_t current_shape = 1;
-        int64_t current_stride = this->strides()[dim - 1];
-        
-        for(int64_t i = dim - 1; i >= 0 ; --i){
-            if(expected_stride == this->strides()[i]){
-                current_shape *= this->shape()[i];
-                expected_stride *= this->shape()[i];
-            }
-            else{
-                merged_dims.emplace_back(current_shape,current_stride);
-                current_shape = this->shape()[i];
-                current_stride = this->strides()[i];
-            }
-        }
-
-        merged_dims.emplace_back(current_shape,current_stride);
-
-        for(int64_t t_shape : shape){
-            if(t_shape == merged_dims.back().first){
-                new_strides.emplace_back(merged_dims.back().second);
-                merged_dims.pop_back();
-            }
-            else if(t_shape > merged_dims.back().first){
-                EXCEPTION_INVALID_VIEW_SHAPE;
-            }
-            else{
-                if(merged_dims.back().first % t_shape != 0){
-                    EXCEPTION_INVALID_VIEW_SHAPE;
-                }
-                size_t left_shape = t_shape;
-                size_t right_shape = merged_dims.back().first / left_shape;
-                size_t right_stride = merged_dims.back().second;
-                size_t left_stride = right_stride * right_shape;
-                new_strides.emplace_back(left_stride);
-                merged_dims.pop_back();
-                merged_dims.emplace_back(right_shape,right_stride);
-            }
-        }
-
-        if(!merged_dims.empty()){
-            EXCEPTION_INVALID_VIEW_SHAPE;
-        }
-
-        return std::shared_ptr<Tensor>(new Tensor(new_meta, _storage));
-    }
-
+    return std::shared_ptr<Tensor>(new Tensor(new_meta, _storage));
 }
 
 tensor_t Tensor::slice(size_t dim, size_t start, size_t end) const {
