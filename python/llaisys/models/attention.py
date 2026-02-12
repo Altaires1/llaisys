@@ -32,14 +32,12 @@ class RMSNorm:
 class RotaryEmbedding:
     """Rotary position embedding (RoPE)"""
     
-    def __init__(self, dim: int, theta: float = 10000.0):
+    def __init__(self, theta: float = 10000.0):
         """Initialize rotary embedding
         
         Args:
-            dim: Dimension of the embedding
             theta: Base for the exponential (default: 10000)
         """
-        self.dim = dim
         self.theta = theta
     
     def forward(self, q: Tensor, pos_ids: Tensor) -> Tensor:
@@ -105,7 +103,7 @@ class MultiHeadAttention:
         self.out_weight = out_weight
         self.out_bias = out_bias
         
-        self.rope = RotaryEmbedding(self.head_dim, rope_theta)
+        self.rope = RotaryEmbedding(rope_theta)
     
     def forward(
         self,
