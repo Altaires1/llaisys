@@ -3,6 +3,7 @@ from ctypes import c_void_p
 import numpy as np
 from pathlib import Path
 import gc
+import ml_dtypes
 
 from ..libllaisys import DeviceType, DataType, MemcpyKind
 from ..tensor import Tensor
@@ -15,7 +16,8 @@ from .weight_loader import WeightLoader
 from .embedding import Embedding
 from .attention import RMSNorm
 from .transformer import TransformerBlock
-from .utils import linear_nd
+from .utils import linear_nd, argmax_nd
+from .sampler import Sampler
 
 
 class Qwen2:
@@ -60,6 +62,9 @@ class Qwen2:
         # Build model components
         print("[Qwen2] Building model components...")
         self._build_model()
+        
+        # Initialize sampler
+        self.sampler = Sampler(self)
         
         # Clean up after model building
         gc.collect()
@@ -116,14 +121,14 @@ class Qwen2:
     def forward(
         self,
         input_ids: Tensor,
-        position_ids: Optional[Tensor] = None,
+        start_pos: int = 0,
         kv_cache: Optional[KVCache] = None,
     ) -> Tensor:
         """Forward pass of the model
         
         Args:
             input_ids: Input token IDs tensor of shape (batch, seq_len)
-            position_ids: Position IDs tensor
+            start_pos: Starting position index for RoPE
             kv_cache: Optional KV cache for inference
             
         Returns:
@@ -134,9 +139,8 @@ class Qwen2:
         # Embed tokens
         x = self.embed_tokens.forward(input_ids)  # (batch, seq_len, hidden_size)
         
-        # Create position IDs if not provided
-        if position_ids is None:
-            position_ids = self._create_position_ids(batch_size, seq_len)
+        # Create position IDs with start_pos offset
+        position_ids = self._create_position_ids(batch_size, seq_len, start_pos)
         
         # Pass through transformer layers
         layer_range = self.layers
@@ -154,12 +158,13 @@ class Qwen2:
         
         return logits
     
-    def _create_position_ids(self, batch_size: int, seq_len: int) -> Tensor:
+    def _create_position_ids(self, batch_size: int, seq_len: int, start_pos: int = 0) -> Tensor:
         """Create position IDs tensor
         
         Args:
             batch_size: Batch size
             seq_len: Sequence length
+            start_pos: Starting position index
             
         Returns:
             Position IDs tensor
@@ -171,12 +176,11 @@ class Qwen2:
             device_id=0
         )
         
-        # Create positions: [0, 1, 2, ..., seq_len-1] repeated for batch
-        positions = np.arange(seq_len, dtype=np.int64)
+        # Create positions: [start_pos, ..., start_pos + seq_len-1] repeated for batch
+        positions = np.arange(start_pos, start_pos + seq_len, dtype=np.int64)
         positions = np.tile(positions, (batch_size, 1))
         
         # Load data to tensor using the load() method
-        # This handles the memory transfer appropriately based on device type
         position_ids.load(positions.ctypes.data_as(c_void_p))
         
         return position_ids
@@ -191,8 +195,15 @@ class Qwen2:
             Numpy array on CPU
         """
         shape = tensor.shape()
+        tensor_device = tensor.device_type()
         
-        # Create numpy array - handle bfloat16 as uint16
+        # Determine memcpy kind based on device
+        if tensor_device == DeviceType.CPU:
+            kind = MemcpyKind.H2H
+        else:
+            kind = MemcpyKind.D2H
+            
+        # Create numpy array with appropriate dtype
         if tensor.dtype() == DataType.I64:
             arr = np.zeros(shape, dtype=np.int64)
         elif tensor.dtype() == DataType.I32:
@@ -202,8 +213,8 @@ class Qwen2:
         elif tensor.dtype() == DataType.F16:
             arr = np.zeros(shape, dtype=np.float16)
         elif tensor.dtype() == DataType.BF16:
-            # bfloat16 is stored as uint16 (16-bit format)
-            arr = np.zeros(shape, dtype=np.uint16)
+            # Correctly use ml_dtypes.bfloat16 to handle bit-patterns
+            arr = np.zeros(shape, dtype=ml_dtypes.bfloat16)
         else:
             arr = np.zeros(shape, dtype=np.float32)
         
@@ -213,7 +224,7 @@ class Qwen2:
             arr_ptr,
             tensor.data_ptr(),
             arr.nbytes,
-            MemcpyKind.D2H
+            kind
         )
         
         return arr
@@ -221,11 +232,12 @@ class Qwen2:
     def generate(
         self,
         inputs: Sequence[int],
-        max_new_tokens: int = None,
-        top_k: int = 1,
-        top_p: float = 0.8,
-        temperature: float = 0.8,
-        max_cache_seq_len: int = None,
+        max_new_tokens: Optional[int] = None,
+        top_k: Optional[int] = None,
+        top_p: Optional[float] = None,
+        temperature: Optional[float] = None,
+        do_sample: Optional[bool] = None,
+        max_cache_seq_len: Optional[int] = None,
     ):
         """Generate text given input token IDs
         
@@ -235,17 +247,23 @@ class Qwen2:
             top_k: Top-k sampling parameter
             top_p: Top-p (nucleus) sampling parameter
             temperature: Sampling temperature
+            do_sample: Whether to use sampling (currently only greedy is implemented)
             max_cache_seq_len: Maximum sequence length for KV cache (for memory optimization).
                              If None, will auto-calculate based on input length.
             
         Returns:
             Generated token IDs as a list
         """
-        if max_new_tokens is None:
-            max_new_tokens = 128
+        # Use generation config for defaults
+        gen_cfg = self.generation_config
+        max_new_tokens = max_new_tokens if max_new_tokens is not None else gen_cfg.max_new_tokens
+        top_k = top_k if top_k is not None else gen_cfg.top_k
+        top_p = top_p if top_p is not None else gen_cfg.top_p
+        temperature = temperature if temperature is not None else gen_cfg.temperature
+        do_sample = do_sample if do_sample is not None else gen_cfg.do_sample
         
         print(f"[Qwen2] Starting generation with {len(inputs)} input tokens, "
-              f"max_new_tokens={max_new_tokens}")
+              f"max_new_tokens={max_new_tokens}, do_sample={do_sample}")
         
         # Convert input to tensor
         input_ids_np = np.array([inputs], dtype=np.int64)  # (1, seq_len)
@@ -286,6 +304,7 @@ class Qwen2:
         
         # Generate tokens
         generated = list(inputs)
+        current_pos = 0
         
         step_range = range(max_new_tokens)
         if self.tqdm:
@@ -309,40 +328,30 @@ class Qwen2:
                 # Load last token using Tensor API
                 current_input.load(last_token.ctypes.data_as(c_void_p))
             
-            # Forward pass
-            logits = self.forward(current_input, kv_cache=kv_cache)
+            # Forward pass with current position tracking
+            logits = self.forward(current_input, start_pos=current_pos, kv_cache=kv_cache)
+            
+            # Update current_pos for the next step
+            batch, seq_len, _ = logits.shape()
+            current_pos += seq_len
             
             # Get last token logits (batch=1, seq_len=?, vocab_size)
-            batch, seq, vocab = logits.shape()
-            
             # Extract last position logits
-            logits_last = logits.slice(1, seq - 1, seq)  # (1, 1, vocab_size)
+            logits_last = logits.slice(1, seq_len - 1, seq_len)  # (1, 1, vocab_size)
             
-            # For now, use greedy decoding (argmax)
-            max_idx = Tensor(
-                shape=(1, 1, 1),
-                dtype=DataType.I64,
-                device=self.device,
-                device_id=0
+            # Sample next token
+            next_token_id = self.sampler.sample(
+                logits_last,
+                temperature=temperature,
+                top_k=top_k,
+                top_p=top_p,
+                do_sample=do_sample
             )
-            max_val = Tensor(
-                shape=(1, 1, 1),
-                dtype=logits.dtype(),
-                device=self.device,
-                device_id=0
-            )
-            
-            # Find argmax along vocabulary dimension
-            Ops.argmax(max_idx, max_val, logits_last)
-            
-            # Copy result back to CPU
-            max_idx_np = self._copy_tensor_to_cpu(max_idx)
-            next_token_id = int(max_idx_np.item())
             
             generated.append(next_token_id)
             
             # Check for EOS token
-            if next_token_id == self.config.eos_token_id:
+            if next_token_id == gen_cfg.eos_token_id:
                 print(f"[Qwen2] Reached EOS token at step {step + 1}")
                 break
         
