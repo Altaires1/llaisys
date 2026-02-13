@@ -150,13 +150,7 @@ class Qwen2:
         x = self.norm.forward(x)  # (batch, seq_len, hidden_size)
         
         # Language model head
-        logits = Tensor(
-            shape=(batch_size, seq_len, self.config.vocab_size),
-            dtype=x.dtype(),
-            device=x.device_type(),
-            device_id=x.device_id()
-        )
-        linear_nd(logits, x, self.lm_head_weight, self.lm_head_bias)
+        logits = linear_nd(x, self.lm_head_weight, self.lm_head_bias)
         
         return logits
     
